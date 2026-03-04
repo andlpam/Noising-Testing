@@ -13,3 +13,5 @@ os.chdir('/content/drive/MyDrive/Noising-Testing')
 
 !python grayscale_script.py
 
+!docker run --gpus all -it --rm -v "$(pwd)/data:/app/data" da3-gpu
+
