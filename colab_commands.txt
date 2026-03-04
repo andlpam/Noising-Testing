@@ -1,0 +1,15 @@
+from google.colab import drive
+drive.mount('/content/drive')
+
+import os
+
+# Entrar na pasta do teu projeto
+os.chdir('/content/drive/MyDrive/Noising-Testing')
+
+# Instalar as bibliotecas que estão no teu requirements.txt
+!pip install -r requirements.txt
+
+!git pull
+
+!python grayscale_script.py
+
