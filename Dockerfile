@@ -1,15 +1,17 @@
 
-# docker run --gpus all -it --rm -v "$(pwd)/data:/app/data" da3-gpu
+# docker run --gpus all -it --rm -v /mnt/e/drone_data_grayscale:/app/data da3-gpu
+# docker run --gpus all -it --rm -v /mnt/e/drone_data_with_colors:/app/data da3-gpu
+# docker run --gpus all -it --rm -v /mnt/e/drone_data:/app/data
 # sed -i 's/reference_view_strategy=reference_view_strategy/reference_view_strategy=ref_view_strategy/g' /app/src/depth_anything_3/cli.py
 # sed -i 's/reference_view_strategy=ref_view_strategy/ref_view_strategy=ref_view_strategy/g' /app/src/depth_anything_3/cli.py
-#VIDEO 1-------------------------------------------
-# da3 video assets/examples/robot_unitree.mp4 \
+
+# da3 video /app/data/drone_video.mp4 \
 #     --model-dir depth-anything/DA3-SMALL \
 #     --fps 2 \
 #     --process-res 336 \
 #     --process-res-method upper_bound_resize \
 #     --ref-view-strategy middle \
-#     --export-dir data/results/robo \
+#     --export-dir /app/data/resultados_drone \
 #     --export-format glb-depth_vis
 
 #Torch needs to be between 2.0 and 2.4 otherwise some libraries cannot work.
