@@ -5,14 +5,7 @@
 # sed -i 's/reference_view_strategy=reference_view_strategy/reference_view_strategy=ref_view_strategy/g' /app/src/depth_anything_3/cli.py
 # sed -i 's/reference_view_strategy=ref_view_strategy/ref_view_strategy=ref_view_strategy/g' /app/src/depth_anything_3/cli.py
 
-# da3 video /app/data/drone_video.mp4 \
-#     --model-dir depth-anything/DA3-SMALL \
-#     --fps 2 \
-#     --process-res 336 \
-#     --process-res-method upper_bound_resize \
-#     --ref-view-strategy middle \
-#     --export-dir /app/data/resultados_drone \
-#     --export-format glb-depth_vis
+
 
 #Torch needs to be between 2.0 and 2.4 otherwise some libraries cannot work.
 FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-devel
@@ -29,9 +22,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-#Clonning the repository
-RUN git clone https://github.com/ByteDance-Seed/Depth-Anything-3.git .
-
 #Updating their toml file. Opencv cannot be without a specific version otherwise it would be in conflict.
 RUN sed -i 's/"opencv-python"/"opencv-python-headless<4.10"/g' pyproject.toml
 
@@ -40,4 +30,6 @@ RUN pip install "torchvision==0.17.2" "numpy<2.0" "xformers==0.0.25.post1"
 RUN pip install -e ".[app]"
 
 CMD ["/bin/bash"]
+
+
 
