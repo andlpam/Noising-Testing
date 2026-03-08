@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY . /app
+RUN git clone https://github.com/ByteDance-Seed/Depth-Anything-3.git .
 
 #Updating their toml file. Opencv cannot be without a specific version otherwise it would be in conflict.
 RUN sed -i 's/"opencv-python"/"opencv-python-headless<4.10"/g' pyproject.toml
@@ -31,7 +31,9 @@ RUN pip install "torchvision==0.17.2" "numpy<2.0" "xformers==0.0.25.post1"
 
 RUN pip install -e ".[app]"
 
-CMD ["/bin/bash"]
+COPY noise.py run_reconstructions.py /app/
+
+CMD ["python", "run_reconstructions.py"]
 
 
 

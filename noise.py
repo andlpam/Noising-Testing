@@ -2,9 +2,11 @@ import numpy as np
 import glob
 import os
 import cv2
+import shutil
 
 images_extensions = ['*.png', '*.jpg']
 video_extensions = ['*.mp4', '*.avi', '*.mkv']
+FPS_IN_VIDEOS = 2
 
 """This class generates de noise and applies it to the clean video."""
 class Noise:
@@ -14,7 +16,7 @@ class Noise:
     self.video_types = video_types
     self.input_path = input_path
 
-  def add_awgn_noise(cur_frame, rng, choosen_scale=25, choosen_loc=0):
+  def add_awgn_noise(self,cur_frame, rng, choosen_scale=25, choosen_loc=0):
     """Apply AWGN to the frames"""
     noise = rng.normal(loc=choosen_loc, scale=choosen_scale, size=cur_frame.shape)
             
@@ -25,7 +27,7 @@ class Noise:
     return img_noised.astype(np.uint8) 
 
   #Apply salt and pepper with uniform distribution
-  def add_salt_and_pepper(cur_frame, rng, a= 0.0, b= 1.0, salt_and_pepper_chance = 0.05):
+  def add_salt_and_pepper(self,cur_frame, rng, a= 0.0, b= 1.0, salt_and_pepper_chance = 0.05):
     #We are going to add 5% salt and 5% chance of pepper
     
     noise = rng.uniform(a,b, cur_frame.shape)
@@ -39,7 +41,7 @@ class Noise:
     
     return cur_frame
 
-  def add_shot_noise(cur_frame,rng):
+  def add_shot_noise(self,cur_frame,rng):
     
     #Can overflow
     img = cur_frame.astype(np.float64)
@@ -50,7 +52,7 @@ class Noise:
     
     return noised_img.astype(np.uint8)
 
-  def add_speckle_noise(cur_frame, rng, choosen_loc=0, choosen_scale = 0.2):
+  def add_speckle_noise(self,cur_frame, rng, choosen_loc=0, choosen_scale = 0.2):
     noise = rng.normal(loc=choosen_loc, scale=choosen_scale, size=cur_frame.shape)
             
     # Need to do this or else it could overflow
@@ -75,8 +77,7 @@ class Noise:
           img_gray = self.add_shot_noise(cur_frame=img_gray,rng=self.rng)
         case "speckle_noise":
           img_gray = self.add_speckle_noise(cur_frame=img_gray, rng=self.rng)
-        case _:
-          print("This noise type isn't implemented")
+          
       cv2.imwrite(os.path.join(dir_path, frame_name), img_gray)
     
   #Main function
@@ -91,10 +92,10 @@ class Noise:
         videos_found.extend(glob.glob(os.path.join(self.input_path, ext)))
 
     # Variáveis de setup
-    width, height, fps = 0, 0, 0
     is_video = False
     cap = None
     count = 0
+    original_fps = 0
     # -Obtain properties of the frame
     if len(images_found) > 0:
         print(f"-> Sequence of images detected: {len(images_found)} frames.")
@@ -107,6 +108,7 @@ class Noise:
         print(f"-> Video detected: {video_path}")
         is_video = True
         cap = cv2.VideoCapture(video_path)
+        original_fps = cap.get(cv2.CAP_PROP_FPS)
         
     else:
         print("-> No images or videos found in the provided directory.")
@@ -122,8 +124,16 @@ class Noise:
         
       else:
         output_dir_path = f"input_noise_{type}"
+      
+      fullpath = os.path.join(self.input_path,output_dir_path)
+      
+      if os.path.exists(fullpath):
+        shutil.rmtree(fullpath)
+        print("Dir already exists... Cleaning it!")
         
-      dir_writers[type] = os.path.join(self.input_path,output_dir_path)
+      os.makedirs(fullpath, exist_ok=True)
+      
+      dir_writers[type] = fullpath
       
     if output_dir_path is None:
       print("No types registered")
@@ -142,13 +152,21 @@ class Noise:
             
     #PROCESSING VIDEOS
     else:
+        if original_fps <= 0: 
+            original_fps = 30
+            
+        frame_interval = int(round(original_fps / FPS_IN_VIDEOS))
+        if frame_interval < 1: 
+            frame_interval = 1
         # Loop in videos
         while cap.isOpened():
             ret, cur_frame = cap.read()
             if not ret:
                 break
-            frame_name = f"frame_{count:05d}.jpg"
-            self.process_single_frame(cur_frame, self.rng, frame_name, dir_writers)
+              
+            if count % frame_interval == 0:
+              frame_name = f"frame_{count:05d}.jpg"
+              self.process_single_frame(cur_frame, self.rng, frame_name, dir_writers)
             count += 1
         cap.release()
      
