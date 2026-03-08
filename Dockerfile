@@ -22,6 +22,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+COPY . /app
+
 #Updating their toml file. Opencv cannot be without a specific version otherwise it would be in conflict.
 RUN sed -i 's/"opencv-python"/"opencv-python-headless<4.10"/g' pyproject.toml
 

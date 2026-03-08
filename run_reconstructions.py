@@ -7,7 +7,7 @@ from depth_anything_3.api import DepthAnything3
 from noise import Noise
 from pathlib import Path
 #Data directory... Different for every person
-INPUT_PATH = '/mnt/e/denoising_and_reconstruction/videos_in'
+INPUT_PATH = 'data/videos_in'
 OUTPUT_DIR = 'reconstructions_out'
 METRICS_DIR = 'metrics_results'
 SEED_NUMBER = 5436364
