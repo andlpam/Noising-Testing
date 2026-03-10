@@ -19,7 +19,7 @@ The pipeline automatically injects noise into drone footage, runs 3D reconstruct
 
 ### 1. Build the Docker Image
 First, build the environment using the provided Dockerfile:
-```bash
+
 docker build -t da3-gpu .
 
 ### 2. Run the Docker Image with the following flags:
@@ -35,3 +35,18 @@ docker build -t da3-gpu .
 --noises: Types of noise to apply. Choices: clean, awgn, salt_and_pepper, shot_noise, speckle_noise. (Default: All of them)
 
 --cc_path: Path to the CloudCompare executable. (Different for every operating system.)
+
+Default example(Applicable to windows machines):
+docker run --gpus all -it --rm -v /path/to/your/local/data:/app/data da3-gpu
+
+Custom Execution(Recommended):
+docker run --gpus all -it --rm -v /path/to/your/local/data:/app/data da3-gpu python run_reconstructions.py --fps 5 --noises clean awgn --cc_path /path/to/your/cloudCompare/executable --output /path/to/send/reconstructions/output --metrics /path/to/your/metrics/folder
+
+📁 Output Structure
+After the pipeline finishes, check your mapped metrics_results folder. You will find:
+
+🖼️ comparation_[noise].png: Visual 2D representations of the depth maps (Clean vs Noisy) sharing the same global color scale.
+
+📊 metrics_results.csv: A spreadsheet containing the Mean Distance and Standard Deviation for each noise type.
+
+📂 Folders per noise: Containing the raw .glb point clouds and .npz depth tensors.
