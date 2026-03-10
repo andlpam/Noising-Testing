@@ -31,7 +31,7 @@ RUN pip install "torchvision==0.17.2" "numpy<2.0" "xformers==0.0.25.post1"
 
 RUN pip install -e ".[app]"
 
-COPY noise.py run_reconstructions.py /app/
+COPY *.py /app/
 
 CMD ["python", "run_reconstructions.py"]
 
