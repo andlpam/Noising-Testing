@@ -2,19 +2,18 @@ import numpy as np
 import glob
 import os
 import cv2
-import shutil
-
+from helpers import create_clean_dirs
 images_extensions = ['*.png', '*.jpg']
 video_extensions = ['*.mp4', '*.avi', '*.mkv']
-FPS_IN_VIDEOS = 2
 
 """This class generates de noise and applies it to the clean video."""
 class Noise:
   
-  def __init__(self, seed, video_types, input_path):
+  def __init__(self, seed, video_types, input_path, fps_wanted = 2):
     self.rng = np.random.default_rng(seed=seed)
     self.video_types = video_types
     self.input_path = input_path
+    self.fps_wanted = fps_wanted
 
   def add_awgn_noise(self,cur_frame, rng, choosen_scale=25, choosen_loc=0):
     """Apply AWGN to the frames"""
@@ -81,6 +80,7 @@ class Noise:
       cv2.imwrite(os.path.join(dir_path, frame_name), img_gray)
     
   #Main function
+  """This function returns a dictionary for the current paths of the output directories."""
   def apply_noise(self):
     images_found = []
     videos_found = []
@@ -119,7 +119,7 @@ class Noise:
     output_dir_path = None
     #Preparing video writers for each type of video
     for type in self.video_types:
-      if type is "clean":
+      if type == "clean":
         output_dir_path = f"input_{type}"
         
       else:
@@ -127,11 +127,7 @@ class Noise:
       
       fullpath = os.path.join(self.input_path,output_dir_path)
       
-      if os.path.exists(fullpath):
-        shutil.rmtree(fullpath)
-        print("Dir already exists... Cleaning it!")
-        
-      os.makedirs(fullpath, exist_ok=True)
+      create_clean_dirs(fullpath)
       
       dir_writers[type] = fullpath
       
@@ -155,7 +151,7 @@ class Noise:
         if original_fps <= 0: 
             original_fps = 30
             
-        frame_interval = int(round(original_fps / FPS_IN_VIDEOS))
+        frame_interval = int(round(original_fps / self.fps_wanted))
         if frame_interval < 1: 
             frame_interval = 1
         # Loop in videos
@@ -169,6 +165,7 @@ class Noise:
               self.process_single_frame(cur_frame, self.rng, frame_name, dir_writers)
             count += 1
         cap.release()
+    
      
 
   
