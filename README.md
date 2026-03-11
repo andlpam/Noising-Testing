@@ -24,30 +24,36 @@ The pipeline automatically injects noise into drone footage, runs 3D reconstruct
 First, build the environment using the provided Dockerfile. You only need to do this once:
 ```bash
 docker build -t da3-gpu .
+```
 
-### 2. Run the Docker Image with the following flags:
+### 2. Run the Pipeline
+Use the main.py script to orchestrate the entire process. It will automatically start the Docker container for the heavy GPU inference, save the results, and then run CloudCompare locally on your host machine to extract the metrics.
 
-#### ⚙️ Standard Flags (Adjust these for your experiment):
-* **`--fps`**: Frames per second to extract *(Default: `2`)*
-* **`--noises`**: Types of noise to apply. Choices: `clean`, `awgn`, `salt_and_pepper`, `shot_noise`, `speckle_noise` *(Default: All)*
+#### Default Execution:
 
-#### 🔧 Advanced Flags (Internal Container Paths):
-*(Note: If you are using the default Docker `-v` volume mount to `/app/data`, you do not need to change these).*
-* **`--input`**: Path to input videos inside the container *(Default: `/app/data/videos_in`)*
-* **`--output`**: Path to save GLB/NPZ files inside the container *(Default: `/app/data/metrics_results`)*
-* **`--cc_path`**: Path to the CloudCompare executable.
+python main.py --local_data "C:\path\to\your\data"
+(Note: Make sure your input videos are placed inside a videos_in folder within your --local_data directory).
 
-Default example(Applicable to windows machines):
-docker run --gpus all -it --rm -v /path/to/your/local/data:/app/data da3-gpu
+#### Custom Execution (Example with flags):
 
-Custom Execution(Recommended):
-docker run --gpus all -it --rm -v /path/to/your/local/data:/app/data da3-gpu python run_reconstructions.py --fps 5 --noises clean awgn --cc_path /path/to/your/cloudCompare/executable --output /path/to/send/reconstructions/output --metrics /path/to/your/metrics/folder
+python main.py --local_data "E:\drone_data" --fps 5 --noises clean awgn --cc_path "D:\Programs\CloudCompare\CloudCompare.exe"
+
+⚙️ Available Flags:
+--local_data (Required): Absolute path on your host machine to the base data folder where the pipeline will read inputs and save outputs.
+
+--fps: Frames per second to extract (Default: 2)
+
+--noises: Types of noise to apply. Choices: clean, awgn, salt_and_pepper, shot_noise, speckle_noise (Default: All)
+
+--cc_path: Absolute path to your CloudCompare executable. (Default: C:\Program Files\CloudCompare\CloudCompare.exe)
 
 📁 Output Structure
-After the pipeline finishes, check your mapped metrics_results folder. You will find:
+After the pipeline finishes, check the generated metrics_results folder inside your local data directory. You will find:
 
 🖼️ comparation_[noise].png: Visual 2D representations of the depth maps (Clean vs Noisy) sharing the same global color scale.
 
 📊 metrics_results.csv: A spreadsheet containing the Mean Distance and Standard Deviation for each noise type.
 
-📂 Folders per noise: Containing the raw .glb point clouds and .npz depth tensors.
+📂 reconstructions_out folder: Containing the raw .glb point clouds and .npz depth tensors.
+
+
