@@ -4,27 +4,18 @@ from helpers import create_clean_dirs
 from run_reconstructions import DA3Runner
 from evaluate_results import MetricsEval
 import csv
+import subprocess
+import json
 if __name__ == "__main__":
     
+    #GETTING THE INPUT VALUES REQUIRED ------------------------------------
     parser = argparse.ArgumentParser(description="DA3 Reconstruction and Noising Pipeline")
     CHOISES_FOR_VIDEO_TYPES = ['clean', 'awgn', 'salt_and_pepper', 'shot_noise', 'speckle_noise']
     parser.add_argument(
-        '--input', 
-        type=str, 
-        default='/app/data/videos_in', 
-        help='Path to the videos that are going to be processed.'
-    )
-    parser.add_argument(
-        '--output',
+        '--local_data',
         type=str,
-        default='/app/data/metrics_results',
-        help='Path to save the output reconstructions and images'
-    )
-    parser.add_argument(
-        '--metrics',
-        type=str,
-        default='/app/data/metrics_results',
-        help='Path to save the metrics'
+        required=True,
+        help='Path to the local data (parent of videos_in)'
     )
     parser.add_argument(
         '--fps',
@@ -48,28 +39,54 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    create_clean_dirs(args.output)
-    create_clean_dirs(args.metrics)
+    local_output = os.path.join(args.local_data, "reconstructions_out")
+    local_metrics = os.path.join(args.local_data, "metrics_results")
     
-    runner = DA3Runner(args.input, args.output, args.fps, args.noises)
-    out_dirs_dict = runner.run_inference()
+    create_clean_dirs(local_output)
+    create_clean_dirs(local_metrics)
+    
+    #RUNNING GLB AND NPZ FILES IN DOCKER---------------------------
+    docker_command = [
+        "docker", "run", "--gpus", "all", "-it", "--rm",
+        "-v", f"{args.local_data}:/app/data",
+        "da3-gpu",
+        "python", "run_reconstructions.py",
+        "--fps", str(args.fps),
+        "--noises"
+    ] + args.noises #add noises
+    #RUN DOCKER FILE
+    subprocess.run(docker_command)
+    
+    #Read PATH DICTIONARY OBJECT----------------------------------
+    
+    json_path = os.path.join(local_metrics, "inference_output.json")
+    
+    if not os.path.exists(json_path):
+        print(f"json file doesnt exist..")
+        exit(1)
+    
+    with open(json_path, "r") as f:
+        paths_dict = json.load(f)
+        
+    #GENERATING METRICS-------------------------------------------
+    
     metrics_evaluator = MetricsEval(args.cc_path)
-    #Save every result to put on a csv
     
     every_result = []
-    for dir_name, dir_path in out_dirs_dict.items():
+    for dir_name, dir_path in paths_dict.items():
         
         if dir_name == "clean":
             continue
         
-        metrics_evaluator.generate_plasma_image(out_dirs_dict["clean"], dir_path, dir_name)
+        metrics_evaluator.generate_plasma_image(paths_dict["clean"], dir_path, dir_name)
         
-        noise_result = metrics_evaluator.calculate_3d_metrics(out_dirs_dict["clean"], dir_path, dir_name)
+        noise_result = metrics_evaluator.calculate_3d_metrics(paths_dict["clean"], dir_path, dir_name)
         
         if noise_result:
             every_result.append(noise_result)
             print(f"Metrics of {dir_name} saved..")
     
+    #SAVING METRICS IN A CSV--------------------------------------
     csv_path = os.path.join(args.metrics, "metrics_results.csv")
     
     with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
@@ -77,12 +94,12 @@ if __name__ == "__main__":
         columns = ["Noise", "Mean Distance", "Std Deviation"]
         
         # Create a writer in excel
-        escritor = csv.DictWriter(csv_file, fieldnames=columns)
+        writer = csv.DictWriter(csv_file, fieldnames=columns)
         
         #Write excel header
-        escritor.writeheader()
+        writer.writeheader()
     
-        escritor.writerows(every_result)
+        writer.writerows(every_result)
         
     print(f"\n Result table created with success in {csv_path}!")
             

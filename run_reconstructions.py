@@ -4,12 +4,14 @@ from depth_anything_3.api import DepthAnything3
 from noise import Noise
 from pathlib import Path
 from helpers import create_clean_dirs
+import json
+import argparse
 #Data directory... Different for every person
 
 images_extensions = ['*.png', '*.jpg']
 
 class DA3Runner:
-    def __init__(self, input_path, output_dir, fps, noise_types, seed=5436364):
+    def __init__(self, input_path, output_dir ,fps, noise_types, seed=5436364):
         self.input_path = input_path
         self.output_dir = output_dir
         self.fps = fps
@@ -82,6 +84,25 @@ class DA3Runner:
         torch.cuda.empty_cache()
         
         return out_dirs_full_path
+        
+#Running DA3Runner and saving the object in json in the metrics folder.
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=str, default='/app/data/videos_in')
+    parser.add_argument('--output', type=str, default='/app/data/reconstructions_out')
+    parser.add_argument('--fps', type=int, default=2)
+    parser.add_argument('--noises', nargs='+', default=['clean', 'awgn', 'salt_and_pepper', 'shot_noise', 'speckle_noise'])
+    parser.add_argument('--metrics',type=str,default='/app/data/metrics_results')
+    args = parser.parse_args()
+    
+    print("-> [DOCKER] Initializing 3D extraction...")
+    runner = DA3Runner(args.input, args.output, args.fps, args.noises)
+    out_dirs_dict = runner.run_inference()
+    json_dict_path = os.path.join(args.metrics, "inference_output.json")
+    
+    with open(json_dict_path, "w") as f:
+        json.dump(out_dirs_dict,f)
     
     
     

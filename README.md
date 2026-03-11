@@ -24,17 +24,15 @@ docker build -t da3-gpu .
 
 ### 2. Run the Docker Image with the following flags:
 
---input: Path to input videos (Default: /app/data/videos_in)
+#### ⚙️ Standard Flags (Adjust these for your experiment):
+* **`--fps`**: Frames per second to extract *(Default: `2`)*
+* **`--noises`**: Types of noise to apply. Choices: `clean`, `awgn`, `salt_and_pepper`, `shot_noise`, `speckle_noise` *(Default: All)*
 
---output: Path to save GLB/NPZ files (Default: /app/data/metrics_results)
-
---metrics: Path to save PNG and CSV metrics (Default: /app/data/metrics_results)
-
---fps: Frames per second to extract (Default: 2)
-
---noises: Types of noise to apply. Choices: clean, awgn, salt_and_pepper, shot_noise, speckle_noise. (Default: All of them)
-
---cc_path: Path to the CloudCompare executable. (Different for every operating system.)
+#### 🔧 Advanced Flags (Internal Container Paths):
+*(Note: If you are using the default Docker `-v` volume mount to `/app/data`, you do not need to change these).*
+* **`--input`**: Path to input videos inside the container *(Default: `/app/data/videos_in`)*
+* **`--output`**: Path to save GLB/NPZ files inside the container *(Default: `/app/data/metrics_results`)*
+* **`--cc_path`**: Path to the CloudCompare executable.
 
 Default example(Applicable to windows machines):
 docker run --gpus all -it --rm -v /path/to/your/local/data:/app/data da3-gpu
