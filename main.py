@@ -1,7 +1,6 @@
 import argparse
 import os
-from helpers import create_clean_dirs
-from run_reconstructions import DA3Runner
+from helpers import create_clean_dirs, turn_relative_path_into_full
 from evaluate_results import MetricsEval
 import csv
 import subprocess
@@ -50,7 +49,6 @@ if __name__ == "__main__":
         "docker", "run", "--gpus", "all", "-it", "--rm",
         "-v", f"{args.local_data}:/app/data",
         "da3-gpu",
-        "python", "run_reconstructions.py",
         "--fps", str(args.fps),
         "--noises"
     ] + args.noises #add noises
@@ -71,23 +69,25 @@ if __name__ == "__main__":
     #GENERATING METRICS-------------------------------------------
     
     metrics_evaluator = MetricsEval(args.cc_path)
-    
+    full_path_clean = turn_relative_path_into_full(paths_dict["clean"], local_output)
     every_result = []
     for dir_name, dir_path in paths_dict.items():
         
         if dir_name == "clean":
             continue
         
-        metrics_evaluator.generate_plasma_image(paths_dict["clean"], dir_path, dir_name)
+        full_path_noise = turn_relative_path_into_full(dir_path, local_output)
         
-        noise_result = metrics_evaluator.calculate_3d_metrics(paths_dict["clean"], dir_path, dir_name)
+        metrics_evaluator.generate_plasma_image(full_path_clean, full_path_noise, dir_name)
+        
+        noise_result = metrics_evaluator.calculate_3d_metrics(full_path_clean, full_path_noise, dir_name)
         
         if noise_result:
             every_result.append(noise_result)
             print(f"Metrics of {dir_name} saved..")
     
     #SAVING METRICS IN A CSV--------------------------------------
-    csv_path = os.path.join(args.metrics, "metrics_results.csv")
+    csv_path = os.path.join(local_metrics, "metrics_results.csv")
     
     with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
         # Define columns in excel

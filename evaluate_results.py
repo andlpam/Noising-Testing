@@ -5,8 +5,9 @@ import glob
 import subprocess
 class MetricsEval:
   
-  def __init__(self, cc_path):
+  def __init__(self, cc_path, local_metrics):
      self.cc_path = cc_path
+     self.local_metrics = local_metrics
 
   def load_npz_file(self,dir_path):
     # Find npz files
@@ -39,7 +40,7 @@ class MetricsEval:
       axes[1].imshow(noise_frame, cmap='plasma', vmin=vmin, vmax=vmax)
       axes[1].set_title(f"Noise: {noise_type}")
       
-      plt.savefig(f"{self.metrics_dir}/comparation_{noise_type}.png")
+      plt.savefig(f"{self.local_metrics}/comparation_{noise_type}.png")
       
       plt.close()
       

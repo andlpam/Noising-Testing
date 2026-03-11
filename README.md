@@ -2,24 +2,27 @@
 
 This repository contains an automated pipeline to evaluate the robustness of the **Depth Anything 3 (DA3)** model against various types of image/video noise. 
 
-The pipeline automatically injects noise into drone footage, runs 3D reconstruction, extracts normalized 2D Depth Maps, and calculates 3D geometric metrics using CloudCompare.
+The pipeline automatically injects noise into drone footage, runs 3D reconstruction, extracts normalized 2D Depth Maps, and calculates 3D geometric metrics using CloudCompare. 
+
+**This pipeline features a Python Orchestrator** that seamlessly bridges GPU-heavy tasks (running inside a Docker container) and CPU-based metrics evaluation (running on your local host machine).
 
 ## 📋 Features
 - **Noise Injection:** Generates variations of the input data (`awgn`, `salt_and_pepper`, `shot_noise`, `speckle_noise`).
-- **3D Inference:** Uses DA3 to generate Point Clouds (`.glb`) and Depth Maps (`.npz`).
+- **3D Inference:** Uses DA3 (via Docker) to generate Point Clouds (`.glb`) and Depth Maps (`.npz`).
 - **2D Evaluation:** Extracts and normalizes depth maps with a `plasma` colormap for visual comparison.
-- **3D Evaluation:** Automates CloudCompare via CLI (ICP + Cloud-to-Cloud Distance) to extract Mean Distance and Standard Deviation.
+- **3D Evaluation:** Automates CloudCompare via CLI on the host machine (ICP + Cloud-to-Cloud Distance).
 - **CSV Export:** Consolidates all 3D metrics into an easy-to-read Excel/CSV file.
 
 ## 🛠️ Prerequisites
-1. **Docker** installed with NVIDIA Container Toolkit (for GPU support).
-2. **CloudCompare** installed (required for the 3D metric extraction phase).
+1. **Python 3.x** installed on your host machine.
+2. **Docker** installed with NVIDIA Container Toolkit (for GPU support).
+3. **CloudCompare** installed on your host machine (required for the 3D metric extraction phase).
 
 ## 🚀 How to Run
 
 ### 1. Build the Docker Image
-First, build the environment using the provided Dockerfile:
-
+First, build the environment using the provided Dockerfile. You only need to do this once:
+```bash
 docker build -t da3-gpu .
 
 ### 2. Run the Docker Image with the following flags:
