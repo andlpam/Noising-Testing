@@ -79,7 +79,7 @@ if __name__ == "__main__":
         
         full_path_noise = turn_relative_path_into_full(dir_path, local_output)
         
-        metrics_evaluator.generate_plasma_image(full_path_clean, full_path_noise, dir_name)
+        metrics_evaluator.generate_depth_error_image(full_path_clean, full_path_noise, dir_name)
         
         noise_result = metrics_evaluator.calculate_3d_metrics(full_path_clean, full_path_noise, dir_name)
         

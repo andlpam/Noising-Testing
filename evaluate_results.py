@@ -23,25 +23,41 @@ class MetricsEval:
     
     with np.load(final_path) as data:
         # Return the dimension of a single frame depth
-        return data['depth'][0]
+        return data['depth'][1]
       
-  def generate_plasma_image(self, clean_dir_path, noise_dir_path, noise_type):
-      
-      clean_frame = self.load_npz_file(clean_dir_path)
-      
-      noise_frame = self.load_npz_file(noise_dir_path)
-      vmax = max(noise_frame.max(), clean_frame.max())
-      vmin = min(noise_frame.min(), clean_frame.min())
+  def generate_depth_error_image(self, clean_path, noisy_path, noise_type):
     
-      _, axes = plt.subplots(1,2)
-  
-      axes[0].imshow(clean_frame, cmap='plasma', vmin=vmin, vmax=vmax)
-      axes[0].set_title("Clean video")
+      clean_depth_frame = self.load_npz_file(clean_path)
+      noisy_depth_frame = self.load_npz_file(noisy_path)
+      upper_lim_noisy = np.percentile(noisy_depth_frame, 0.95)
+      lower_lim_noisy = np.percentile(noisy_depth_frame, 0.05)
       
-      axes[1].imshow(noise_frame, cmap='plasma', vmin=vmin, vmax=vmax)
-      axes[1].set_title(f"Noise: {noise_type}")
+      cur_noise_frame = np.clip(noisy_depth_frame, lower_lim_noisy, upper_lim_noisy)
       
-      plt.savefig(f"{self.local_metrics}/comparation_{noise_type}.png")
+      mean_noise = np.mean(cur_noise_frame)
+      stdev_noise = np.std(cur_noise_frame)
+      
+      mean_clean = np.mean(clean_depth_frame)
+      stdev_clean =np.std(clean_depth_frame)
+      
+      matrix_noise = (cur_noise_frame - mean_noise)/stdev_noise
+      matrix_clean = (clean_depth_frame - mean_clean)/stdev_clean
+
+      error_matrix = np.abs(matrix_clean-matrix_noise)
+      
+      plt.figure(figsize=(8,6))
+      
+      depth_map = plt.imshow(error_matrix, cmap='plasma', vmin=0, vmax =1)
+      
+      plt.colorbar(depth_map, label="Abs Error")
+      
+      plt.title(f"Error Map: Clean vs {noise_type}")
+      
+      plt.axis('off')
+      
+      img_path = f"{self.local_metrics}/error_depthmap_{noise_type}.png"
+      
+      plt.savefig(img_path, bbox_inches='tight')
       
       plt.close()
       
