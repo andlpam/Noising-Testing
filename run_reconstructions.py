@@ -6,6 +6,8 @@ from pathlib import Path
 from helpers import create_clean_dirs
 import json
 import argparse
+import glob
+import numpy as np
 #Data directory... Different for every person
 
 images_extensions = ['*.png', '*.jpg']
@@ -67,15 +69,33 @@ class DA3Runner:
         out_dirs_full_path = {}
         for dir_name, img_list in dir_images.items():
             full_path = os.path.join(self.output_dir, dir_name)
-            _ = self.model.inference(
+            prediction = self.model.inference(
                 image = img_list,
                 ref_view_strategy = "middle",
-                process_res = 518,
+                process_res = 140,
                 use_ray_pose=False,
                 process_res_method = "upper_bound_resize",
                 export_dir = full_path,
-                export_format = "mini_npz-glb",
+                export_format = "glb",
+                show_cameras=False, #Cloud Compare cannot do ICP if this is turned on
             )
+            
+            npz_path = os.path.join(full_path, "depth_data.npz")
+            
+            np.savez_compressed(
+                npz_path,
+                depth=prediction.depth
+            )
+            
+            #DEBUG-----------------------
+            npz_files = glob.glob(os.path.join(full_path,"*.npz"))
+            glb_files = glob.glob(os.path.join(full_path,"*.glb"))
+            
+            if npz_files and glb_files:
+                print("FILES SAVED WITH SUCCESS!!")
+            else:
+                print("Some files were not saved with success!!")
+            
             #The input args might not match 
             target_type = next((type for type in self.noise_types if type in dir_name), None)
             out_dirs_full_path[target_type] = full_path

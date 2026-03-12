@@ -44,14 +44,15 @@ if __name__ == "__main__":
     create_clean_dirs(local_output)
     create_clean_dirs(local_metrics)
     
-    #RUNNING GLB AND NPZ FILES IN DOCKER---------------------------
+    abs_local_data = os.path.abspath(args.local_data)
+    # RUNNING GLB AND NPZ FILES IN DOCKER---------------------------
     docker_command = [
         "docker", "run", "--gpus", "all", "-it", "--rm",
-        "-v", f"{args.local_data}:/app/data",
+        "--mount", f"type=bind,source={abs_local_data},target=/app/data",
         "da3-gpu",
         "--fps", str(args.fps),
         "--noises"
-    ] + args.noises #add noises
+    ] + args.noises # add noises
     #RUN DOCKER FILE
     subprocess.run(docker_command)
     
@@ -68,7 +69,7 @@ if __name__ == "__main__":
         
     #GENERATING METRICS-------------------------------------------
     
-    metrics_evaluator = MetricsEval(args.cc_path)
+    metrics_evaluator = MetricsEval(args.cc_path, local_metrics)
     full_path_clean = turn_relative_path_into_full(paths_dict["clean"], local_output)
     every_result = []
     for dir_name, dir_path in paths_dict.items():
