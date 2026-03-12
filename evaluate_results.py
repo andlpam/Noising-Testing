@@ -29,25 +29,25 @@ class MetricsEval:
     
       clean_depth_frame = self.load_npz_file(clean_path)
       noisy_depth_frame = self.load_npz_file(noisy_path)
-      upper_lim_noisy = np.percentile(noisy_depth_frame, 0.95)
-      lower_lim_noisy = np.percentile(noisy_depth_frame, 0.05)
+      vmax = np.percentile(noisy_depth_frame, 95)
+      lower_lim_noisy = np.percentile(noisy_depth_frame, 5)
       
-      cur_noise_frame = np.clip(noisy_depth_frame, lower_lim_noisy, upper_lim_noisy)
+      # cur_noise_frame = np.clip(noisy_depth_frame, lower_lim_noisy, upper_lim_noisy)
       
-      mean_noise = np.mean(cur_noise_frame)
-      stdev_noise = np.std(cur_noise_frame)
+      mean_noise = np.mean(noisy_depth_frame)
+      stdev_noise = np.std(noisy_depth_frame)
       
       mean_clean = np.mean(clean_depth_frame)
-      stdev_clean =np.std(clean_depth_frame)
+      stdev_clean = np.std(clean_depth_frame)
       
-      matrix_noise = (cur_noise_frame - mean_noise)/stdev_noise
+      matrix_noise = (noisy_depth_frame - mean_noise)/stdev_noise
       matrix_clean = (clean_depth_frame - mean_clean)/stdev_clean
 
       error_matrix = np.abs(matrix_clean-matrix_noise)
       
       plt.figure(figsize=(8,6))
       
-      depth_map = plt.imshow(error_matrix, cmap='plasma', vmin=0, vmax =1)
+      depth_map = plt.imshow(error_matrix, cmap='plasma', vmin=0,vmax= vmax)
       
       plt.colorbar(depth_map, label="Abs Error")
       
