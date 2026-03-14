@@ -54,6 +54,10 @@ After the pipeline finishes, check the generated metrics_results folder inside y
 
 📊 metrics_results.csv: A spreadsheet containing the Mean Distance and Standard Deviation for each noise type.
 
+#### MIssing tasks:
+- Put structural noise of all kinds
+- Fix depth map errors
+
 📂 reconstructions_out folder: Containing the raw .glb point clouds and .npz depth tensors.
 
 
