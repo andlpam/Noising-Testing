@@ -14,6 +14,7 @@ class Noise:
     self.video_types = video_types
     self.input_path = input_path
     self.fps_wanted = fps_wanted
+    
 
   def add_awgn_noise(self,cur_frame, rng, choosen_scale=25, choosen_loc=0):
     """Apply AWGN to the frames"""
@@ -151,20 +152,23 @@ class Noise:
         if original_fps <= 0: 
             original_fps = 30
             
-        frame_interval = int(round(original_fps / self.fps_wanted))
-        if frame_interval < 1: 
-            frame_interval = 1
+        self.frame_interval = int(round(original_fps / self.fps_wanted))
+        if self.frame_interval < 1: 
+            self.frame_interval = 1
         # Loop in videos
         while cap.isOpened():
             ret, cur_frame = cap.read()
             if not ret:
                 break
               
-            if count % frame_interval == 0:
+            if count % self.frame_interval == 0:
               frame_name = f"frame_{count:05d}.jpg"
               self.process_single_frame(cur_frame, self.rng, frame_name, dir_writers)
             count += 1
         cap.release()
+        
+    
+      
     
      
 

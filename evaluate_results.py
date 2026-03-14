@@ -4,11 +4,21 @@ import os
 import glob
 import subprocess
 import platform
+import open3d as o3d
+from PIL import Image
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from helpers import turn_relative_path_into_full
+import csv
+FRAME_CHOOSEN = 4
+
 class MetricsEval:
   
-  def __init__(self, cc_path, local_metrics):
+  def __init__(self, cc_path, local_metrics, local_output, local_input):
      self.cc_path = cc_path
      self.local_metrics = local_metrics
+     self.local_output = local_output
+     self.local_input = local_input
 
   def load_npz_file(self,dir_path):
     # Find npz files
@@ -23,7 +33,16 @@ class MetricsEval:
     
     with np.load(final_path) as data:
         # Return the dimension of a single frame depth
-        return data['depth'][1]
+        return data['depth'][FRAME_CHOOSEN]
+    
+  def load_image(self,path):
+    # Se os caminhos não existirem, criamos uma imagem vazia (dummy) para o código não falhar
+    try:
+        img = Image.open(path).convert('RGB')
+        return np.array(img)
+    except FileNotFoundError:
+        # Retorna uma imagem preta de placeholder se o ficheiro não existir
+        return np.zeros((200, 200, 3), dtype=np.uint8)
       
   def generate_depth_error_image(self, clean_path, noisy_path, noise_type):
     
@@ -55,7 +74,7 @@ class MetricsEval:
       
       plt.axis('off')
       
-      img_path = f"{self.local_metrics}/error_depthmap_{noise_type}.png"
+      img_path = os.path.join(self.local_metrics, f"error_depthmap_{noise_type}.png")#f"{self.local_metrics}/error_depthmap_{noise_type}.png"
       
       plt.savefig(img_path, bbox_inches='tight')
       
@@ -131,7 +150,6 @@ class MetricsEval:
           except ImportError:
               # Fallback to Open3D if trimesh isn't installed
               try:
-                  import open3d as o3d
                   mesh = o3d.io.read_triangle_mesh(linux_glb)
                   if not mesh.has_vertices():
                       pcd = o3d.io.read_point_cloud(linux_glb)
@@ -192,6 +210,187 @@ class MetricsEval:
         "Mean Distance" : mean_val,
         "Std Deviation" : stdev_val,
       }
+  """ Using the cpu to process the screenshot due to wsl"""
+  def generate_3d_screenshot(self, glb_path, output_img_path):
+      print(f"📸 A gerar screenshot para: {os.path.basename(glb_path)}")
+      
+      # 1. FORÇAR O WSL A IGNORAR A GPU PARA RENDERING E USAR SOFTWARE (Evita erros ZINK/Wayland)
+      os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
+      os.environ["GALLIUM_DRIVER"] = "llvmpipe"
+      
+      try:
+          import trimesh
+          import open3d.visualization.rendering as rendering
+          
+          # 2. Carregar a nuvem de pontos com Trimesh (Robusto para os GLBs do DA3)
+          scene = trimesh.load(glb_path, force='scene')
+          
+          vertices = []
+          colors = []
+          for geom in scene.geometry.values():
+              if hasattr(geom, 'vertices'):
+                  vertices.extend(geom.vertices)
+              if hasattr(geom, 'visual') and hasattr(geom.visual, 'vertex_colors'):
+                  colors.extend(geom.visual.vertex_colors[:, :3])
+          
+          if not vertices and hasattr(scene, 'vertices'):
+              vertices = scene.vertices
+              if hasattr(scene, 'visual') and hasattr(scene.visual, 'vertex_colors'):
+                  colors = scene.visual.vertex_colors[:, :3]
+
+          if len(vertices) == 0:
+              print("❌ O GLB não tem pontos válidos.")
+              return None
+
+          # 3. Converter para nuvem de pontos Open3D
+          pcd = o3d.geometry.PointCloud()
+          pcd.points = o3d.utility.Vector3dVector(np.array(vertices))
+          
+          if len(colors) == len(vertices):
+              pcd.colors = o3d.utility.Vector3dVector(np.array(colors) / 255.0)
+          else:
+              pcd.paint_uniform_color([0.5, 0.5, 0.5]) # Cinza se não houver cores
+
+          # 4. Usar o OffscreenRenderer do Open3D (Feito para servidores e WSL sem interface gráfica)
+          # Resolução: 1024x1024
+          render = rendering.OffscreenRenderer(1024, 1024)
+          
+          # Material básico para os pontos brilharem e não ficarem pretos
+          mat = rendering.MaterialRecord()
+          mat.shader = "defaultUnlit"
+          mat.point_size = 2.0 # Tamanho do ponto (ajusta se ficar muito denso/fino)
+          
+          render.scene.add_geometry("pcd", pcd, mat)
+          render.scene.set_background([1.0, 1.0, 1.0, 1.0]) # Fundo Branco (RGBA)
+          
+          # 5. Posicionar a câmara automaticamente para ver todos os pontos
+          bounds = pcd.get_axis_aligned_bounding_box()
+          center = bounds.get_center()
+          # Ajusta a câmara: (campo de visão, ponto de foco, posição da câmara, vetor "Cima")
+          # Pode ser necessário afinar a posição [center[0], center[1], center[2] - 3] dependendo dos eixos do DA3
+          render.setup_camera(60.0, center, [center[0], center[1], center[2] - 3], [0, -1, 0])
+          
+          # 6. Renderizar imagem silenciosamente e guardar
+          img = render.render_to_image()
+          o3d.io.write_image(output_img_path, img)
+          
+          print(f"✅ Screenshot guardado com sucesso em {output_img_path}")
+          
+      except Exception as e:
+          print(f"❌ Erro ao gerar screenshot 3D: {e}")
+          
+      return output_img_path
+  
+  """
+  This method plots in an html page the results of the injecting noise
+  
+  Pre conditions:
+  -All Images must be Ploted in their corresponding file paths
+  """
+  def plot_page(self, dict_of_noise):
+      #Remove clean here because we dont need it
+      _ = dict_of_noise.pop("clean", None)
+      num_rows = len(dict_of_noise.keys())
+      num_cols = len(dict_of_noise["awgn"].keys()) -1 
+      #Im not going to plot the name
+      column_titles = [ col for col in dict_of_noise["awgn"].keys() if col != "input_dir_path"]
+      
+      fig = make_subplots(
+          rows=num_rows,
+          cols=num_cols,
+          subplot_titles=column_titles,
+          horizontal_spacing= 0.02,
+          vertical_spacing= 0.05
+      )
+      
+      for i, (noise_name, data) in enumerate(dict_of_noise.items()):
+          
+          row = i + 1
+          depth_path = turn_relative_path_into_full(data["input_dir_path"], self.local_output)
+          img_depth = self.load_image(os.path.join(depth_path, "depth_vis", os.path.basename(data["Normal Depth Map"])))
+          img_error = self.load_image(turn_relative_path_into_full(data["Depth Map Error"], self.local_metrics))
+          img_recon = self.load_image(turn_relative_path_into_full(data["3D Reconstruction"], self.local_metrics))
+          
+          fig.add_trace(go.Image(z=img_depth), row=row, col = 1)
+          
+          fig.add_trace(go.Image(z=img_error), row=row, col = 2)
+          
+          fig.add_trace(go.Image(z=img_recon), row=row, col = 3)
+          
+          fig.update_yaxes(title_text=noise_name.capitalize(), row=row, col=1)
+      
+      fig.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
+      fig.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
+      
+      fig.update_layout(
+      title_text="Evaluation of Noise in Images and DA3 Reconstructions",
+      height=300 * num_rows, # ~300px per line
+      width=1200,            # Total width
+      margin=dict(l=50, r=20, t=80, b=20)
+      )
+      file_name = "evaluation_denoising.html"
+      fig.write_html(file_name)
+      
+      print(f"File {file_name} was created with success!")
+  
+  """"
+  What misses in the directories in this moment is:
+    -Screenshot reconstructions images
+    -Depth map errors image, need to call the function
+  """
+  def run_evaluation_pipeline(self,noise_documentation):
+      
+      full_path_clean = turn_relative_path_into_full(noise_documentation["clean"]["input_dir_path"], self.local_output)
+      every_result = []
+      for noise_type, informations in noise_documentation.items():
+        
+        if noise_type == "clean":
+            continue
+        
+        full_path_noise = turn_relative_path_into_full(informations["input_dir_path"], self.local_output)
+        
+        self.generate_depth_error_image(full_path_clean, full_path_noise, noise_type)
+        
+        noise_result = self.calculate_3d_metrics(full_path_clean, full_path_noise, noise_type)
+        
+        if noise_result:
+            every_result.append(noise_result)
+            print(f"Metrics of {noise_type} saved..")
+         
+        noise_glb = glob.glob(os.path.join(full_path_noise,"*.glb"))[0] 
+        
+        reconstruction_path = turn_relative_path_into_full(noise_documentation[noise_type]["3D Reconstruction"], self.local_metrics)
+        
+        #Take a screenshot of the glb file
+        self.generate_3d_screenshot(noise_glb, reconstruction_path)
+      
+      #Pick up de images and plot
+      self.plot_page(noise_documentation)
+    
+      #SAVING METRICS IN A CSV--------------------------------------
+      csv_path = os.path.join(self.local_metrics, "metrics_results.csv")
+    
+      with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
+        # Define columns in excel
+        columns = ["Noise", "Mean Distance", "Std Deviation"]
+        
+        # Create a writer in excel
+        writer = csv.DictWriter(csv_file, fieldnames=columns)
+        
+        #Write excel header
+        writer.writeheader()
+    
+        writer.writerows(every_result)
+        
+      print(f"\n Result table created with success in {csv_path}!")
+      
+    
+      
+    
+      
+      
+      
+      
       
     
     

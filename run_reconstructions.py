@@ -9,16 +9,17 @@ import argparse
 import glob
 import numpy as np
 #Data directory... Different for every person
-
+FRAME_CHOOSEN = 4
 images_extensions = ['*.png', '*.jpg']
 
 class DA3Runner:
-    def __init__(self, input_path, output_dir ,fps, noise_types, seed=5436364):
+    def __init__(self, input_path, output_dir ,metrics_dir,fps, noise_types, seed=5436364):
         self.input_path = input_path
         self.output_dir = output_dir
         self.fps = fps
         self.noise_types = noise_types
         self.seed = seed
+        self.metrics_dir = metrics_dir
         
         print("-> Loading DA3 Model...")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,23 +65,26 @@ class DA3Runner:
         
         print("Loading Da3 model..")
     
+        
+        noise_documentation = {}
         #Clean reconstructions before
         create_clean_dirs(self.output_dir)
-        out_dirs_full_path = {}
         for dir_name, img_list in dir_images.items():
-            full_path = os.path.join(self.output_dir, dir_name)
+            noise_full_details = {}
+            full_path_out = os.path.join(self.output_dir, dir_name)
+            
             prediction = self.model.inference(
                 image = img_list,
                 ref_view_strategy = "middle",
-                process_res = 490,
+                process_res = 140,
                 use_ray_pose=False,
                 process_res_method = "upper_bound_resize",
-                export_dir = full_path,
+                export_dir = full_path_out,
                 export_format = "glb",
                 show_cameras=False, #Cloud Compare cannot do ICP if this is turned on
             )
             
-            npz_path = os.path.join(full_path, "depth_data.npz")
+            npz_path = os.path.join(full_path_out, "depth_data.npz")
             
             np.savez_compressed(
                 npz_path,
@@ -88,22 +92,31 @@ class DA3Runner:
             )
             
             #DEBUG-----------------------
-            npz_files = glob.glob(os.path.join(full_path,"*.npz"))
-            glb_files = glob.glob(os.path.join(full_path,"*.glb"))
-            
-            if npz_files and glb_files:
+            npz_file = glob.glob(os.path.join(full_path_out,"*.npz"))[0]
+            glb_file = glob.glob(os.path.join(full_path_out,"*.glb"))[0]
+             
+            if npz_file and glb_file:
                 print("FILES SAVED WITH SUCCESS!!")
             else:
                 print("Some files were not saved with success!!")
-            
+                
             #The input args might not match 
             target_type = next((type for type in self.noise_types if type in dir_name), None)
-            out_dirs_full_path[target_type] = full_path
+            #Put the details in the dictionary--------------------------
+            
+            noise_full_details["input_dir_path"] = full_path_out
+            noise_full_details["Normal Depth Map"] = glob.glob(os.path.join(full_path_out,"depth_vis", f"*{FRAME_CHOOSEN}*.jpg"))[0]
+            noise_full_details["Depth Map Error"] = os.path.join(self.metrics_dir, f"error_depthmap_{target_type}.png")
+            noise_full_details["3D Reconstruction"] = os.path.join(self.metrics_dir, f"reconstruction_{target_type}.jpg") #Not yet created
+            
+            noise_documentation[target_type] = noise_full_details
+            
+                
             
         #Clean garbage
         torch.cuda.empty_cache()
         
-        return out_dirs_full_path
+        return noise_documentation
         
 #Running DA3Runner and saving the object in json in the metrics folder.
 if __name__ == "__main__":
@@ -117,7 +130,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     print("-> [DOCKER] Initializing 3D extraction...")
-    runner = DA3Runner(args.input, args.output, args.fps, args.noises)
+    runner = DA3Runner(args.input, args.output, args.metrics,args.fps, args.noises)
     out_dirs_dict = runner.run_inference()
     json_dict_path = os.path.join(args.metrics, "inference_output.json")
     

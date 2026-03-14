@@ -1,8 +1,8 @@
 import argparse
 import os
-from helpers import create_clean_dirs, turn_relative_path_into_full
+from helpers import create_clean_dirs
 from evaluate_results import MetricsEval
-import csv
+
 import subprocess
 import json
 if __name__ == "__main__":
@@ -14,7 +14,7 @@ if __name__ == "__main__":
         '--local_data',
         type=str,
         required=True,
-        help='Path to the local data (parent of videos_in)'
+        help='Path to the local input data (videos or images)'
     )
     parser.add_argument(
         '--fps',
@@ -38,13 +38,14 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     
-    local_output = os.path.join(args.local_data, "reconstructions_out")
-    local_metrics = os.path.join(args.local_data, "metrics_results")
-    
+    local_dir = os.path.dirname(args.local_data)
+    local_output = os.path.join(local_dir, "reconstructions_out")
+    local_metrics = os.path.join(local_dir, "metrics_results")
     create_clean_dirs(local_output)
     create_clean_dirs(local_metrics)
     
-    abs_local_data = os.path.abspath(args.local_data)
+    
+    abs_local_data = os.path.abspath(local_dir)
     # RUNNING GLB AND NPZ FILES IN DOCKER---------------------------
     docker_command = [
         "docker", "run", "--gpus", "all", "-it", "--rm",
@@ -57,7 +58,9 @@ if __name__ == "__main__":
     subprocess.run(docker_command)
     
     #Read PATH DICTIONARY OBJECT----------------------------------
-    
+    print(local_dir)
+    print(local_output)
+    print(local_metrics)
     json_path = os.path.join(local_metrics, "inference_output.json")
     
     if not os.path.exists(json_path):
@@ -65,44 +68,12 @@ if __name__ == "__main__":
         exit(1)
     
     with open(json_path, "r") as f:
-        paths_dict = json.load(f)
+        noise_documentation = json.load(f)
         
     #GENERATING METRICS-------------------------------------------
     
-    metrics_evaluator = MetricsEval(args.cc_path, local_metrics)
-    full_path_clean = turn_relative_path_into_full(paths_dict["clean"], local_output)
-    every_result = []
-    for dir_name, dir_path in paths_dict.items():
-        
-        if dir_name == "clean":
-            continue
-        
-        full_path_noise = turn_relative_path_into_full(dir_path, local_output)
-        
-        metrics_evaluator.generate_depth_error_image(full_path_clean, full_path_noise, dir_name)
-        
-        noise_result = metrics_evaluator.calculate_3d_metrics(full_path_clean, full_path_noise, dir_name)
-        
-        if noise_result:
-            every_result.append(noise_result)
-            print(f"Metrics of {dir_name} saved..")
-    
-    #SAVING METRICS IN A CSV--------------------------------------
-    csv_path = os.path.join(local_metrics, "metrics_results.csv")
-    
-    with open(csv_path, mode='w', newline='', encoding='utf-8') as csv_file:
-        # Define columns in excel
-        columns = ["Noise", "Mean Distance", "Std Deviation"]
-        
-        # Create a writer in excel
-        writer = csv.DictWriter(csv_file, fieldnames=columns)
-        
-        #Write excel header
-        writer.writeheader()
-    
-        writer.writerows(every_result)
-        
-    print(f"\n Result table created with success in {csv_path}!")
+    metrics_evaluator = MetricsEval(args.cc_path, local_metrics, local_output, args.local_data)
+    metrics_evaluator.run_evaluation_pipeline(noise_documentation)
             
     
    
