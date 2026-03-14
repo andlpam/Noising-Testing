@@ -57,6 +57,8 @@ After the pipeline finishes, check the generated metrics_results folder inside y
 #### MIssing tasks:
 - Put structural noise of all kinds
 - Fix depth map errors
+- Zoom Reconstructions
+- Put metrics in the reconstruction image
 
 📂 reconstructions_out folder: Containing the raw .glb point clouds and .npz depth tensors.
 
