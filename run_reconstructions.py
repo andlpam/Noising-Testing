@@ -76,7 +76,7 @@ class DA3Runner:
             prediction = self.model.inference(
                 image = img_list,
                 ref_view_strategy = "middle",
-                process_res = 140,
+                process_res = 560,
                 use_ray_pose=False,
                 process_res_method = "upper_bound_resize",
                 export_dir = full_path_out,
